@@ -608,6 +608,8 @@ urlpatterns = [
     path('gstr2new2_pdf',views.gstr2new2_pdf,name='gstr2new2_pdf'),
     path('sales_or_purchase_report_by_item',views.sales_or_purchase_report_by_item,name='sales_or_purchase_report_by_item'), 
     path('sales_or_purchase_report_by_item_send_mail',views.sales_or_purchase_report_by_item_send_mail,name='sales_or_purchase_report_by_item_send_mail'),
+
+    path('outstanding_payables',views.outstanding_payables, name='outstanding_payables'),
     
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}),
     

@@ -19134,3 +19134,14 @@ def sales_or_purchase_report_by_item_send_mail(request):
   messages.info(request,'sales/purchase by report report shared via mail')
   print("mail send succesfully")
   return redirect('sales_or_purchase_report_by_item')
+
+
+
+def outstanding_payables(request):
+  id=request.session.get('staff_id')
+  staff=staff_details.objects.get(id=id)
+  company=SalesInvoice.objects.filter(company=staff.company)
+  allmodules= modules_list.objects.get(company=staff.company.id,status='New')
+  credit=SalesInvoiceItem.objects.filter(company=staff.company)
+  creditt = PurchaseBillItem.objects.filter(company=staff.company)
+  return render(request,'company/outstanding_payables.html',{'staff':staff,'company':company,'credit':credit,'creditt':creditt,'allmodules':allmodules})
