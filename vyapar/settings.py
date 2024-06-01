@@ -82,9 +82,9 @@ WSGI_APPLICATION = 'vyapar.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'infoxtec_vyaparlatestfile',
-        'USER':'infoxtec_vyaparlatestfile',
-        'PASSWORD':'infoxtec_vyaparlatestfile',
+        'NAME': 'vyapar_db',
+        'USER':'root',
+        'PASSWORD':'',
         'HOST':'localhost',
         'PORT':'3306',
     }
@@ -127,7 +127,8 @@ USE_TZ = True
 
 MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 MEDIA_URL = '/media/'
-STATIC_ROOT = os.path.join(BASE_DIR,'static')
+#STATIC_ROOT = os.path.join(BASE_DIR,'static')
+STATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]
 STATIC_URL = '/static/'
 
 # Default primary key field type

@@ -610,6 +610,7 @@ urlpatterns = [
     path('sales_or_purchase_report_by_item_send_mail',views.sales_or_purchase_report_by_item_send_mail,name='sales_or_purchase_report_by_item_send_mail'),
 
     path('outstanding_payables',views.outstanding_payables, name='outstanding_payables'),
+    path('send_report_via_mail',views.send_report_via_mail,name='send_report_via_mail'),
     
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}),
     

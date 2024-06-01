@@ -96,7 +96,7 @@
                     <div class="card bg-light bs p-2 m-2">
                         <div class="card-group w-100 mx-auto d-block"> 
                             <h2 style="color:red; text-align: center;">{{staff.company.company_name}}</h2>
-                        <h4 style="text-align: center;">Outstanding payables</h4>
+                        <h4 style="text-align: center;">Outstanding Payables</h4>
                         <h5 style="text-align: center;">
                             <span id="s1date" style="color:black; text-align: center;"></span>
                             <span id="e1date" style="color:black; text-align: center;"></span></h5>
@@ -104,7 +104,16 @@
 
                         </div>
                         <div class="bar d-flex justify-content-end">
-                            
+                            <!--<div class=" card-group">
+                                <div class="px-2">
+                                    <label style="text-align:left; ">From</label><br>
+                                    <input name="FromDate" class="inputdate form-control" type="date" id="in1" style="border: 2px solid #0080ff;width: 200px;background-color: white;">
+                                </div>
+                                <div class="px-2">
+                                    <label style="text-align:left ">To</label><br>
+                                    <input name="ToDate" class="inputdate form-control" type="date" id="in2" style="border: 2px solid #0080ff;width: 200px;background-color: white;">
+                                </div>
+                            </div>-->
                             <div class=" card-group">
                                 <div class="right mt-3">
                                     <a class="btn " title="export to excel"onclick="exportAsExcel()">
@@ -151,7 +160,7 @@
                     
                     </div>
                     <div class="modal-body">
-                      <form method="post" action="{% url 'send_discount_report_via_mail' %}"    id="email" enctype="multipart/form-data">
+                      <form method="post" action="{% url 'send_report_via_mail' %}"    id="email" enctype="multipart/form-data">
                         {% csrf_token %}
                         <div class="form-group" hidden>
                             <label>From DATE</label>
@@ -256,13 +265,7 @@
                             
 
 
-                            <th class="text-center fs-2 bg-secondary text-white">
-                                GROUP&nbsp;NAME
-                                <div class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"
-                                    aria-expanded="false"></div>
-
-                                
-                            </th>
+                            
 
                             
                             <th class="text-center fs-2 bg-secondary text-white">PENDING AMOUNT
@@ -285,24 +288,39 @@
                         </thead>
 
                         <tbody>
-                            
-                            <tr>
+                            {% for c in credit %}
+                            <tr class="party-row" data-party-name="{{ c.party__party_name }}">
+                                <td class="text-center party-name">{{ c.party__party_name }}</td>
                                 
-                                <td class="text-center"></td>
-                               
-                                <td class="text-center"></td>
-                                <td class="text-center"></td>
-                                <td class="text-center"></td>
-                                
+                                <td class="text-center">{{ c.total_balance }}</td>
+                                <td class="text-center">{{ c.total_bill_count }}</td>
                             </tr>
-                               
-                        
-
-                                
+                            <tr class="detail-row" id="details-{{ forloop.counter }}" style="display: none;">
+                                <td colspan="4">
+                                    <table class="inner-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center"><i>Bill Number</i></th>
+                                                <th class="text-center"><i>Balance</i></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for bill in credit_details %}
+                                                {% if bill.party.party_name == c.party__party_name %}
+                                                <tr style="font-style: italic;">
+                                                    <td class="text-center">{{bill.billno}}</td>
+                                                    <td class="text-center">{{bill.balance}}</td>
+                                                </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                     
-
                 </div>
                 
                     
@@ -319,6 +337,24 @@
 </div>
 
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        const partyRows = document.querySelectorAll('.party-row');
+    
+        partyRows.forEach(partyRow => {
+            partyRow.addEventListener('click', function() {
+                const partyName = this.getAttribute('data-party-name');
+                const detailRow = document.querySelector(`#details-${Array.from(partyRows).indexOf(this) + 1}`);
+                
+                if (detailRow.style.display === 'none') {
+                    detailRow.style.display = 'table-row';
+                } else {
+                    detailRow.style.display = 'none';
+                }
+            });
+        });
+    });
+    </script>
 <style>
  
 
@@ -412,7 +448,7 @@
     function exportAsExcel() {
         const table = document.getElementById('myTable');
         const wb = XLSX.utils.table_to_book(table);
-        XLSX.writeFile(wb, 'discount_report.xlsx');
+        XLSX.writeFile(wb, 'outstanding_payables.xlsx');
         location.reload();
     }
 
@@ -420,7 +456,7 @@
         var element = document.getElementById('content-div');
         var opt = {
             margin: 0.5,
-            filename: 'Discount report' + '.pdf',
+            filename: 'outstanding payables' + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 4 },
             jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
