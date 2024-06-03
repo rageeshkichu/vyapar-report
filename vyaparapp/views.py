@@ -19138,66 +19138,108 @@ def sales_or_purchase_report_by_item_send_mail(request):
 
 
 def outstanding_payables(request):
-    id = request.session.get('staff_id')
-    staff = staff_details.objects.get(id=id)
-    company = SalesInvoice.objects.filter(company=staff.company)
-    allmodules = modules_list.objects.get(company=staff.company.id, status='New')
+    if 'staff_id' in request.session:
+        if request.session.has_key('staff_id'):
+            staff_id = request.session['staff_id']
+        else:
+            return redirect('/')
     
-    # Aggregate grandtotal and balance for each party
-    credit = PurchaseBill.objects.filter(company=staff.company).values('party__party_name').annotate(
-        total_grandtotal=Sum('grandtotal'),
-        total_balance=Sum('balance'),
-        total_bill_count=Count('tot_bill_no')
-    )
-    credit_details = PurchaseBill.objects.filter(company=staff.company)
-    
-    return render(request, 'company/outstanding_payables.html', {
+    staff = staff_details.objects.get(id=staff_id)
+    company_instance = company.objects.get(id=staff.company.id)
+    salesinvoices = PurchaseBill.objects.filter(company=company_instance)
+    allmodules = modules_list.objects.get(company=staff.company, status='New')
+
+    # Get date filter values from the request
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if from_date and to_date:
+        salesinvoices = salesinvoices.filter(billdate__range=[from_date, to_date])
+
+    # Aggregate data
+    outstanding_data = {}
+    for invoice in salesinvoices:
+        if float(invoice.balance) == 0:
+            continue  # Skip invoices with a zero balance
+        if invoice.party.party_name not in outstanding_data:
+            outstanding_data[invoice.party.party_name] = {
+                'balance_amount': 0.0,  # Initialize as a float
+                'invoice_count': 0,
+                'invoices': []
+            }
+        outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.balance)
+        outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+        outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+    context = {
         'staff': staff,
-        'company': company,
-        'credit': credit,
-        'credit_details': credit_details,
-        'allmodules': allmodules
-    })
+        'outstanding_data': outstanding_data,
+        'allmodules': allmodules,
+        'from_date': from_date,
+        'to_date': to_date,
+    }
+    return render(request, 'company/outstanding_payables.html', context)
 
 
 def send_report_via_mail(request):
-  if request.method == 'POST':
-    from_date_str=request.POST['fdate']
-    To_date_str=request.POST['tdate']
-    search=request.POST['search']
-    filters_by=request.POST['filter']
-    emails_string = request.POST['email']
-    emails= [email.strip() for email in emails_string.split(',')]
-    mess=request.POST['message']
-    
-    if search == '' or filters_by == '' or from_date_str == '' or To_date_str == '' :
-      id=request.session.get('staff_id')
-      staff=staff_details.objects.get(id=id)
-      credit = PurchaseBill.objects.filter(company=staff.company).values('party__party_name').annotate(
-        total_grandtotal=Sum('grandtotal'),
-        total_balance=Sum('balance'),
-        total_bill_count=Count('tot_bill_no')
-    )
-      credit_details = PurchaseBill.objects.filter(company=staff.company)
-      
-      content={
+    if request.method == 'GET':
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        search = request.GET.get('search_input')
+        emails_string = request.GET.get('email_ids')
+        emails = [email.strip() for email in emails_string.split(',')]
+        mess = request.GET.get('email_message')
+        id = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=id)
+
+        salesinvoices = PurchaseBill.objects.filter(staff_id__company=staff.company).order_by('id')
+        if from_date and to_date:
+            salesinvoices = salesinvoices.filter(billdate__range=[from_date, to_date])
+        if search:
+            salesinvoices = salesinvoices.filter(
+                Q(invoice_no__icontains=search) |
+                Q(party__party_name__icontains=search)
+            )
         
-        'staff': staff,
-        'company': company,
-        'credit': credit,
-        'credit_details': credit_details,
+        outstanding_data = {}
+        for invoice in salesinvoices:
+            if float(invoice.balance) == 0:
+                continue  # Skip invoices with a zero balance
+            if invoice.party.party_name not in outstanding_data:
+                outstanding_data[invoice.party.party_name] = {
+                    'balance_amount': 0.0,  # Initialize as a float
+                    'invoice_count': 0,
+                    'invoices': []
+                }
+            outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.balance)
+            outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+            outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+        content = {
+            'staff': staff,
+            'outstanding_data': outstanding_data,
+            'from_date': from_date,
+            'to_date': to_date,
+        }
         
-      }
-      template_path = 'company/share_outstanding_report_mail.html'
-      template = get_template(template_path)
-      html  = template.render(content)
-      result = BytesIO()
-      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-      pdf = result.getvalue()
-      filename = f'Report.pdf'
-      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-      email.attach(filename, pdf, "application/pdf")
-      email.send(fail_silently=False)
-      messages.info(request,'report shared via mail')
-      return redirect('outstanding_payables') 
-  return redirect('outstanding_payables') 
+        template_path = 'company/share_outstanding_report_mail.html'
+        template = get_template(template_path)
+        html = template.render(content)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Outstanding Payables Report.pdf'
+        subject = f"Sharing Outstanding Payables Report"
+        email = EmailMessage(
+            subject,
+            f"Hi,\nPlease find the attached Outstanding Payables Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}",
+            from_email=settings.EMAIL_HOST_USER,
+            to=emails
+        )
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        message = 'Report has been shared via email successfully..!'
+        return JsonResponse({'message': message})
+    else:
+        message = 'Report cannot be sent..!'
+        return JsonResponse({'message': message})
